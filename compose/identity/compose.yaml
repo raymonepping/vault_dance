@@ -1,0 +1,164 @@
+# compose/identity/compose.yaml: who people are, and the service accounts
+# Vault rotates.
+#
+# OpenLDAP (the directory) + Keycloak (OIDC for the console). Topology and
+# scripts from vault_crypto (prompt 08) and Project Durin.
+#
+#   directory  dc=dance,dc=lab
+#              ou=people           tess, otto, ada (fictional)
+#              ou=groups           dance-viewers, dance-operators, dance-admins
+#              ou=service-accounts svc-billing, svc-reports, svc-batch, svc-backup
+#              ou=system           vault-auth-bind (read), vault-rotator (write
+#                                  userPassword under ou=service-accounts only)
+#   realm      dance, read-only LDAP federation (bind vault-auth-bind), `groups` claim
+#   clients    dance-console (the console's BFF, code + PKCE), dance-cli (lab only)
+#
+# Every password lives in Vault KV (kv/dance/identity/*, scripts/identity-secrets.sh).
+# identity-secrets-init logs in once with AppRole identity-secrets, renders the
+# values onto the identity-secrets volume and revokes its token; nothing here
+# reads .env for a secret. The ACLs are applied by scripts/ldap-acl.sh over
+# ldapi:// inside the openldap container. Vault reaches Keycloak at
+# keycloak:8080 (JWKS); browsers at http://localhost:${VDNC_PORT_KEYCLOAK}.
+
+services:
+  identity-secrets-init:
+    image: ${VAULT_ENT_IMAGE}
+    container_name: vdnc-identity-secrets-init
+    # Root inside the container: the fresh identity-secrets volume is root-owned.
+    entrypoint: ["/bin/sh", "/init/entrypoint.sh"]
+    environment:
+      VAULT_ADDR: https://vault-1:8200
+      VAULT_CACERT: /vault/tls/ca-chain.pem
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp, /home/vault]
+    volumes:
+      - ../../vault-tls/ca-chain.pem:/vault/tls/ca-chain.pem:ro
+      - ./identity-secrets/entrypoint.sh:/init/entrypoint.sh:ro
+      # Only this identity's two AppRole files, never .secrets/vault itself.
+      - ../../.secrets/vault/identity:/approle:ro
+      - identity-secrets:/run/secrets
+    networks: [default]
+    restart: "no"
+
+  openldap:
+    image: ${OPENLDAP_IMAGE}
+    container_name: vdnc-openldap
+    hostname: openldap
+    environment:
+      LDAP_ORGANISATION: "Vault Dance Lab"
+      LDAP_DOMAIN: "dance.lab"
+      LDAP_BASE_DN: "dc=dance,dc=lab"
+      LDAP_ADMIN_PASSWORD_FILE: "/run/secrets/ldap-admin-password"
+      LDAP_TLS: "false"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, KILL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ldap-data:/var/lib/ldap
+      - ldap-config:/etc/ldap/slapd.d
+      - identity-secrets:/run/secrets:ro
+    networks:
+      default:
+        aliases: [openldap]
+    restart: unless-stopped
+    depends_on:
+      identity-secrets-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -D cn=admin,dc=dance,dc=lab -w \"$$(cat /run/secrets/ldap-admin-password)\" -b dc=dance,dc=lab -s base >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot: entries from bootstrap.ldif, passwords from Vault KV.
+  ldap-bootstrap:
+    image: ${OPENLDAP_IMAGE}
+    container_name: vdnc-ldap-bootstrap
+    profiles: ["init"]
+    environment:
+      LDAP_BASE_DN: "dc=dance,dc=lab"
+      LDAP_HOST: "openldap"
+    entrypoint: ["/bootstrap/setup_ldap.sh"]
+    volumes:
+      - ./ldap:/bootstrap:ro
+      - identity-secrets:/run/secrets:ro
+    networks: [default]
+    depends_on:
+      openldap:
+        condition: service_healthy
+
+  keycloak:
+    image: ${KEYCLOAK_IMAGE}
+    container_name: vdnc-keycloak
+    hostname: keycloak
+    # Exports the Vault-sourced bootstrap admin password, then execs kc.sh.
+    entrypoint: ["/bin/sh", "/vault/vault-entrypoint.sh"]
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KC_HTTP_ENABLED: "true"
+      # Browser-facing issuer is fixed; internal callers (Vault JWKS, the API,
+      # kcadm) use keycloak:8080 and get backchannel URLs for it.
+      KC_HOSTNAME: "http://localhost:${VDNC_PORT_KEYCLOAK}"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:${VDNC_PORT_KEYCLOAK}:8080"]
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/vault-entrypoint.sh:/vault/vault-entrypoint.sh:ro
+      - identity-secrets:/run/secrets:ro
+    mem_limit: 1g
+    networks:
+      default:
+        aliases: [keycloak]
+    depends_on:
+      openldap:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /realms/master/.well-known/openid-configuration HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  # One-shot: realm, LDAP federation + mappers, clients, claims.
+  keycloak-bootstrap:
+    image: ${KEYCLOAK_IMAGE}
+    container_name: vdnc-keycloak-bootstrap
+    profiles: ["init"]
+    entrypoint: ["/bin/bash", "/bootstrap/setup_keycloak.sh"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KC_INTERNAL_URL: "http://keycloak:8080"
+      VDNC_CONSOLE_URL: "https://localhost:${VDNC_PORT_WEB}"
+    volumes:
+      - ./keycloak:/bootstrap:ro
+      - identity-secrets:/run/secrets:ro
+    networks: [default]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      ldap-bootstrap:
+        condition: service_completed_successfully
+
+networks:
+  default:
+    name: vdnc-internal
+    external: true
+
+volumes:
+  ldap-data:
+    labels: { io.vdnc.data: "true" }
+  ldap-config:
+    labels: { io.vdnc.data: "true" }
+  keycloak-data:
+    labels: { io.vdnc.data: "true" }
+  identity-secrets: {}

@@ -1,0 +1,15 @@
+---
+# Called by scripts/onboard.sh, never by hand: sets ONE account's initial
+# password from a 0600 vars file (-e @file) that the caller deletes. Vault
+# rotates the password within seconds, so this value dies quickly.
+#   -e target_host=host-rocky -e @/tmp/vars.yml (account, password)
+- name: Initial password for one managed account
+  hosts: "{{ target_host | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Set the initial password
+      ansible.builtin.user:
+        name: "{{ account }}"
+        password: "{{ password | password_hash('sha512') }}"
+        update_password: always
+      no_log: true

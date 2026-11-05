@@ -1,0 +1,15 @@
+# Managed by Ansible (vault_dance, role linux_baseline). Do not edit here.
+# Included first, so these values win over the distribution defaults.
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+MaxAuthTries 3
+LoginGraceTime 30
+
+# The accounts Vault's OS secrets engine manages (group {{ managed_group }}):
+# it logs in with the password it holds and runs passwd (self-managed) or
+# sudo chpasswd (parent-managed), so it needs password login and a PTY.
+Match Group {{ managed_group }}
+    PasswordAuthentication yes
+    KbdInteractiveAuthentication yes
+    PermitTTY yes

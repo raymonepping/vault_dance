@@ -1,0 +1,13 @@
+---
+# Called by scripts/scenario.sh only: the password-age scenario. Sets the
+# minimum password age of one account; passwd (self-managed rotation) then
+# refuses to change a password changed less than that many days ago.
+#   -e target_host=host-ubuntu -e account=ops-breakglass -e min_days=2
+- name: Minimum password age for one account
+  hosts: "{{ target_host | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Set the minimum password age
+      ansible.builtin.user:
+        name: "{{ account }}"
+        password_expire_min: "{{ min_days | int }}"

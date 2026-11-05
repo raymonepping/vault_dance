@@ -1,0 +1,102 @@
+# compose/identity/ldap/bootstrap.ldif: the lab's directory. Fictional people,
+# no passwords (setup_ldap.sh sets people and system binds from Vault KV;
+# make onboard gives service accounts theirs, then Vault rotates them).
+#
+#   tess  viewer                       sees everything, may not act
+#   otto  viewer + operator            rotates, checks out, re-registers
+#   ada   viewer + operator + admin    the demo presenter
+
+dn: ou=people,dc=dance,dc=lab
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=dance,dc=lab
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=service-accounts,dc=dance,dc=lab
+objectClass: organizationalUnit
+ou: service-accounts
+
+dn: ou=system,dc=dance,dc=lab
+objectClass: organizationalUnit
+ou: system
+
+dn: uid=tess,ou=people,dc=dance,dc=lab
+objectClass: inetOrgPerson
+uid: tess
+cn: Tess Auditor
+sn: Auditor
+givenName: Tess
+mail: tess@dance.lab
+
+dn: uid=otto,ou=people,dc=dance,dc=lab
+objectClass: inetOrgPerson
+uid: otto
+cn: Otto Operator
+sn: Operator
+givenName: Otto
+mail: otto@dance.lab
+
+dn: uid=ada,ou=people,dc=dance,dc=lab
+objectClass: inetOrgPerson
+uid: ada
+cn: Ada Admin
+sn: Admin
+givenName: Ada
+mail: ada@dance.lab
+
+dn: cn=dance-viewers,ou=groups,dc=dance,dc=lab
+objectClass: groupOfNames
+cn: dance-viewers
+member: uid=tess,ou=people,dc=dance,dc=lab
+member: uid=otto,ou=people,dc=dance,dc=lab
+member: uid=ada,ou=people,dc=dance,dc=lab
+
+dn: cn=dance-operators,ou=groups,dc=dance,dc=lab
+objectClass: groupOfNames
+cn: dance-operators
+member: uid=otto,ou=people,dc=dance,dc=lab
+member: uid=ada,ou=people,dc=dance,dc=lab
+
+dn: cn=dance-admins,ou=groups,dc=dance,dc=lab
+objectClass: groupOfNames
+cn: dance-admins
+member: uid=ada,ou=people,dc=dance,dc=lab
+
+dn: cn=vault-auth-bind,ou=system,dc=dance,dc=lab
+objectClass: inetOrgPerson
+cn: vault-auth-bind
+sn: system
+description: Vault LDAP auth and Keycloak federation: read only
+
+dn: cn=vault-rotator,ou=system,dc=dance,dc=lab
+objectClass: inetOrgPerson
+cn: vault-rotator
+sn: system
+description: Vault LDAP secrets engine: writes userPassword under ou=service-accounts
+
+dn: cn=svc-billing,ou=service-accounts,dc=dance,dc=lab
+objectClass: inetOrgPerson
+cn: svc-billing
+sn: service
+description: Rotated by Vault (root-managed, rotation_period)
+
+dn: cn=svc-reports,ou=service-accounts,dc=dance,dc=lab
+objectClass: inetOrgPerson
+cn: svc-reports
+sn: service
+description: Rotated by Vault (root-managed, rotate on read)
+
+dn: cn=svc-batch,ou=service-accounts,dc=dance,dc=lab
+objectClass: inetOrgPerson
+cn: svc-batch
+sn: service
+description: Rotated by Vault (root-managed, rotation_schedule)
+
+dn: cn=svc-backup,ou=service-accounts,dc=dance,dc=lab
+objectClass: inetOrgPerson
+cn: svc-backup
+sn: service
+description: Rotated by Vault (self-managed)
+

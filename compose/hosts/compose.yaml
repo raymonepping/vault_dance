@@ -1,0 +1,39 @@
+# compose/hosts/compose.yaml: the two Linux servers whose local passwords the
+# OS secrets engine rotates.
+#
+# sshd is PID 1. Vault reaches them as host-rocky / host-ubuntu on port 22
+# (vdnc-internal); Ansible reaches them on 127.0.0.1 (published SSH ports,
+# key-only `ansible` user). No volume: /etc/shadow lives in the container
+# layer, survives a stop (make down) and is lost on recreate; make doctor
+# says so and make hosts-configure && make onboard restore it.
+#
+# Not hardened like the Vault containers: `sudo` and `passwd` are setuid, so
+# no-new-privileges is off. cap_drop ALL, then only what sshd, sudo and
+# passwd need.
+
+x-host: &host
+  cap_drop: [ALL]
+  cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, FSETID, SETUID, SETGID, SYS_CHROOT, AUDIT_WRITE, KILL, NET_BIND_SERVICE]
+  restart: unless-stopped
+  mem_limit: 256m
+  networks: [default]
+
+services:
+  host-rocky:
+    <<: *host
+    image: ${VDNC_IMAGE_PREFIX}/host-rocky:${VDNC_IMAGE_TAG}
+    container_name: vdnc-host-rocky
+    hostname: host-rocky
+    ports: ["127.0.0.1:${VDNC_PORT_SSH_ROCKY}:22"]
+
+  host-ubuntu:
+    <<: *host
+    image: ${VDNC_IMAGE_PREFIX}/host-ubuntu:${VDNC_IMAGE_TAG}
+    container_name: vdnc-host-ubuntu
+    hostname: host-ubuntu
+    ports: ["127.0.0.1:${VDNC_PORT_SSH_UBUNTU}:22"]
+
+networks:
+  default:
+    name: vdnc-internal
+    external: true

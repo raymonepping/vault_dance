@@ -223,3 +223,25 @@ kube/config
 # AI assistant tooling (local only)
 AGENTS.md
 AGENTS.override.md
+
+########################################
+# vault_dance
+########################################
+prompts/
+input/
+article/
+backups/
+vault-tls/vault.key
+!.env.example
+e2e/.auth/
+test-results/
+playwright-report/
+web/dist/
+
+# ── Added by commit_gh --harden ─────────────────────────────
+*.env
+.vault.*
+*.vault
+*.jsonl
+output/*
+!output/.gitkeep

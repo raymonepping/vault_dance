@@ -1,0 +1,21 @@
+# host-rocky: a Rocky Linux 9 server (RHEL-compatible: the OS secrets engine's
+# documented platform, shadow-utils > 4.6). The image carries the OS and the
+# `ansible` user only; accounts, sudoers and sshd policy are Ansible's.
+ARG ROCKY_IMAGE
+FROM ${ROCKY_IMAGE}
+ARG ANSIBLE_PUBKEY
+RUN dnf -y install openssh-server openssh-clients sudo passwd shadow-utils python3 procps-ng \
+    && dnf clean all && rm -rf /var/cache/dnf
+RUN useradd -m -s /bin/bash ansible \
+    && install -d -m 0700 -o ansible -g ansible /home/ansible/.ssh \
+    && printf '%s\n' "$ANSIBLE_PUBKEY" > /home/ansible/.ssh/authorized_keys \
+    && chown ansible:ansible /home/ansible/.ssh/authorized_keys \
+    && chmod 0600 /home/ansible/.ssh/authorized_keys \
+    && printf 'ansible ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/ansible \
+    && chmod 0440 /etc/sudoers.d/ansible \
+    && rm -f /etc/ssh/ssh_host_*
+COPY start-sshd.sh /usr/local/sbin/start-sshd
+RUN chmod 0755 /usr/local/sbin/start-sshd
+EXPOSE 22
+HEALTHCHECK --interval=10s --timeout=3s --retries=6 CMD pgrep -x sshd >/dev/null || exit 1
+CMD ["/usr/local/sbin/start-sshd"]

@@ -1,0 +1,18 @@
+{
+  "name": "vault-dance-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "vault_dance API: every rotated credential as Vault describes it, proved by logging in with it.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "NODE_ENV=test node --test 'test/*.test.js'"
+  },
+  "dependencies": {
+    "ldapts": "9.2.0",
+    "ssh2": "1.17.0"
+  }
+}

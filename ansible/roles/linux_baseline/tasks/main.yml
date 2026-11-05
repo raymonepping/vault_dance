@@ -1,0 +1,16 @@
+---
+# sshd policy: keys only by default; password login and a PTY only for the
+# accounts Vault manages (the OS engine logs in with the password it holds).
+- name: SSH policy drop-in
+  ansible.builtin.template:
+    src: 10-vault-dance.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-vault-dance.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reload sshd
+
+- name: Check the whole sshd configuration
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false

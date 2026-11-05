@@ -1,0 +1,41 @@
+---
+- name: Group for the accounts Vault manages
+  ansible.builtin.group:
+    name: "{{ managed_group }}"
+    state: present
+
+# Created locked. make onboard sets an initial password, then Vault rotates
+# it; update_password=on_create keeps Ansible from ever touching it again.
+- name: Managed accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment }}"
+    group: "{{ managed_group }}"
+    shell: /bin/bash
+    create_home: true
+    password: "!"
+    update_password: on_create
+  loop: "{{ managed_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# Password age: no minimum (Vault may rotate every two minutes), no expiry
+# (Vault, not the host, decides when a password changes). The password-age
+# scenario changes the minimum on purpose; this run puts it back.
+- name: Password age for managed accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    password_expire_min: 0
+    password_expire_max: 99999
+  loop: "{{ managed_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Allow mgmt-vault exactly one root command, chpasswd
+  ansible.builtin.template:
+    src: sudoers-mgmt-vault.j2
+    dest: /etc/sudoers.d/mgmt-vault
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

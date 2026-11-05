@@ -1,0 +1,5 @@
+---
+# sshd is PID 1 in the lab hosts: SIGHUP re-reads the configuration.
+- name: Reload sshd
+  ansible.builtin.command: kill -HUP 1
+  changed_when: true

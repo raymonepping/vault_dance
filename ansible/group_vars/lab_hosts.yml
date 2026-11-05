@@ -1,0 +1,13 @@
+# The local accounts Vault's OS secrets engine manages on every lab host.
+#   mgmt-vault      parent account: may run exactly /usr/sbin/chpasswd as root;
+#                   rotates itself (self-managed) and app-deploy (parent-managed)
+#   app-deploy      parent-managed by mgmt-vault (chpasswd)
+#   ops-breakglass  self-managed (passwd over a PTY)
+managed_group: vault-managed
+managed_accounts:
+  - name: mgmt-vault
+    comment: Vault OS secrets engine parent account
+  - name: app-deploy
+    comment: Application deploy account (rotated by mgmt-vault)
+  - name: ops-breakglass
+    comment: Break-glass account (rotates itself)

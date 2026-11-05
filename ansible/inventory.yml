@@ -1,0 +1,17 @@
+# ansible/inventory.yml: the two lab hosts, reached on their published SSH
+# ports as the key-only `ansible` user. Vault reaches the same hosts as
+# host-<distro>:22 on vdnc-internal.
+all:
+  vars:
+    ansible_user: ansible
+    ansible_host: 127.0.0.1
+    ansible_become: true
+  children:
+    lab_hosts:
+      hosts:
+        host-rocky:
+          ansible_port: 13622
+          distro: rocky
+        host-ubuntu:
+          ansible_port: 13623
+          distro: ubuntu

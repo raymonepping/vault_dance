@@ -1,0 +1,43 @@
+---
+# Called by scripts/probe.sh only: scratch accounts for the probe, so it never
+# touches an account the lab manages. probe-parent may run chpasswd as root.
+#   -e target_host=host-rocky -e state=present|absent [-e @vars (passwords)]
+- name: Probe accounts
+  hosts: "{{ target_host | default('none') }}"
+  gather_facts: false
+  vars:
+    probe_accounts: [probe-parent, probe-child, probe-self]
+  tasks:
+    - name: Probe accounts present, with their initial passwords
+      ansible.builtin.user:
+        name: "{{ item }}"
+        group: "{{ managed_group }}"
+        shell: /bin/bash
+        password: "{{ passwords[item] | password_hash('sha512') }}"
+        update_password: always
+        password_expire_min: 0
+      loop: "{{ probe_accounts }}"
+      no_log: true
+      when: state == 'present'
+
+    - name: Allow probe-parent exactly one root command, chpasswd
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/probe-parent
+        content: "probe-parent ALL=(root) NOPASSWD: /usr/sbin/chpasswd\n"
+        mode: "0440"
+        validate: /usr/sbin/visudo -cf %s
+      when: state == 'present'
+
+    - name: Probe accounts absent
+      ansible.builtin.user:
+        name: "{{ item }}"
+        state: absent
+        remove: true
+      loop: "{{ probe_accounts }}"
+      when: state == 'absent'
+
+    - name: Probe sudoers absent
+      ansible.builtin.file:
+        path: /etc/sudoers.d/probe-parent
+        state: absent
+      when: state == 'absent'
