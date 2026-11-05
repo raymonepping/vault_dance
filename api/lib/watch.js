@@ -42,8 +42,12 @@ export function diff(prev, cur) {
   const out = [];
   if (!prev) return out;
   const moved =
-    (cur.version !== null && prev.version !== null && cur.version !== prev.version) ||
-    (cur.lastRotation && prev.lastRotation && cur.lastRotation !== prev.lastRotation);
+    (cur.version !== null &&
+      prev.version !== null &&
+      cur.version !== prev.version) ||
+    (cur.lastRotation &&
+      prev.lastRotation &&
+      cur.lastRotation !== prev.lastRotation);
   if (moved)
     out.push({
       kind: "rotation",
@@ -61,7 +65,10 @@ export function diff(prev, cur) {
             ? "Vault stopped retrying: listed in sys/rotation/orphans"
             : `next rotation (${cur.nextRotation}) passed; Vault is retrying`,
       });
-    else if (["overdue", "orphaned"].includes(prev.state) && ["ok", "recovered"].includes(cur.state))
+    else if (
+      ["overdue", "orphaned"].includes(prev.state) &&
+      ["ok", "recovered"].includes(cur.state)
+    )
       out.push({
         kind: "recovered",
         id: cur.id,

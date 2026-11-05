@@ -81,11 +81,18 @@ export function deriveState(cfg, listed, nowS = Math.floor(Date.now() / 1000)) {
 export function schedule(cfg) {
   if (!cfg) return null;
   if (cfg.rotation_schedule)
-    return { kind: "schedule", cron: cfg.rotation_schedule, window: cfg.rotation_window || 0 };
+    return {
+      kind: "schedule",
+      cron: cfg.rotation_schedule,
+      window: cfg.rotation_window || 0,
+    };
   if (Number(cfg.rotation_period) > 0)
     return { kind: "period", seconds: Number(cfg.rotation_period) };
   if (cfg.rotate_on_read)
-    return { kind: "on-read", cooldown: Number(cfg.rotate_on_read_cooldown) || 0 };
+    return {
+      kind: "on-read",
+      cooldown: Number(cfg.rotate_on_read_cooldown) || 0,
+    };
   return { kind: "manual" };
 }
 
@@ -150,7 +157,13 @@ export async function versions(c) {
 // Vault 2.2.1 has no LIST for sys/policies/rotation ("unsupported path",
 // prompt 06), so the policies read are the ones the credentials name.
 export async function rotationPolicies() {
-  const names = [...new Set(all().map((c) => c.rotation_policy).filter(Boolean))];
+  const names = [
+    ...new Set(
+      all()
+        .map((c) => c.rotation_policy)
+        .filter(Boolean),
+    ),
+  ];
   const out = [
     {
       name: "default",
@@ -169,8 +182,12 @@ export async function rotationPolicies() {
       vault: p,
     });
   }
-  const used = all().map((c) => ({ id: c.id, policy: c.rotation_policy || "default" }));
-  for (const p of out) p.usedBy = used.filter((u) => u.policy === p.name).map((u) => u.id);
+  const used = all().map((c) => ({
+    id: c.id,
+    policy: c.rotation_policy || "default",
+  }));
+  for (const p of out)
+    p.usedBy = used.filter((u) => u.policy === p.name).map((u) => u.id);
   return out;
 }
 
@@ -184,7 +201,9 @@ export async function rotate(c) {
 export async function healthCheck(c) {
   if (c.engine !== "ldap")
     throw new NotFound("health checks exist for LDAP static roles only");
-  const r = await vault("POST", `${configPath(c)}/health-check/exec`, { body: {} });
+  const r = await vault("POST", `${configPath(c)}/health-check/exec`, {
+    body: {},
+  });
   return { result: r?.data || null };
 }
 
@@ -209,11 +228,18 @@ export async function reregister(c) {
     "rotation_policy",
     "disable_automated_rotation",
   ]) {
-    if (cfg[k] !== undefined && cfg[k] !== null && cfg[k] !== "" && cfg[k] !== 0) body[k] = cfg[k];
+    if (
+      cfg[k] !== undefined &&
+      cfg[k] !== null &&
+      cfg[k] !== "" &&
+      cfg[k] !== 0
+    )
+      body[k] = cfg[k];
   }
   if (c.engine === "os") {
     body.username = cfg.username;
-    if (cfg.parent_account_ref) body.parent_account_ref = cfg.parent_account_ref;
+    if (cfg.parent_account_ref)
+      body.parent_account_ref = cfg.parent_account_ref;
   } else {
     body.username = cfg.username;
     body.dn = cfg.dn;

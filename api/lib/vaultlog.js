@@ -9,7 +9,10 @@
 import { openSync, readSync, closeSync, statSync, readdirSync } from "node:fs";
 import { all, rotationId } from "./credentials.js";
 
-const LOG_DIRS = (process.env.VAULT_LOG_DIRS || "/var/log/vault/vault-1,/var/log/vault/vault-2,/var/log/vault/vault-3")
+const LOG_DIRS = (
+  process.env.VAULT_LOG_DIRS ||
+  "/var/log/vault/vault-1,/var/log/vault/vault-2,/var/log/vault/vault-3"
+)
   .split(",")
   .filter(Boolean);
 const MAX_READ = 256 * 1024;
@@ -51,7 +54,8 @@ export function parseLog(text) {
       continue;
     }
     if (cur && /^\s+error=\s*$/.test(line)) continue;
-    if (cur?.multi) cur.error = cur.multi.filter(Boolean).join(" ").slice(0, 400);
+    if (cur?.multi)
+      cur.error = cur.multi.filter(Boolean).join(" ").slice(0, 400);
     cur = null;
   }
   if (cur?.multi) cur.error = cur.multi.filter(Boolean).join(" ").slice(0, 400);
@@ -116,5 +120,8 @@ export function readFailures() {
 }
 
 export function logsAvailable() {
-  return LOG_DIRS.map((d) => ({ node: d.split("/").pop(), file: newest(d) !== null }));
+  return LOG_DIRS.map((d) => ({
+    node: d.split("/").pop(),
+    file: newest(d) !== null,
+  }));
 }

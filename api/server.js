@@ -61,7 +61,9 @@ async function drain(req) {
 export function credentialParam(url) {
   const id = url.searchParams.get("id") || "";
   if (!/^[a-z0-9-]+\/[a-z0-9-]+$/.test(id))
-    throw new BadRequest("id: a credential id such as host-rocky/app-deploy or ldap/svc-billing");
+    throw new BadRequest(
+      "id: a credential id such as host-rocky/app-deploy or ldap/svc-billing",
+    );
   try {
     return creds.byId(id);
   } catch (e) {
@@ -96,8 +98,12 @@ async function cluster() {
   } catch {
     leader = null;
   }
-  const raft = await vault("GET", "sys/storage/raft/configuration").catch((e) => ({ error: e.message }));
-  const license = await vault("GET", "sys/license/status").catch((e) => ({ error: e.message }));
+  const raft = await vault("GET", "sys/storage/raft/configuration").catch(
+    (e) => ({ error: e.message }),
+  );
+  const license = await vault("GET", "sys/license/status").catch((e) => ({
+    error: e.message,
+  }));
   const lic = license?.data?.autoloaded || null;
   return {
     seal: { addr: VAULT_SEAL_ADDR, ...seal },
@@ -114,7 +120,8 @@ async function cluster() {
           expirationTime: lic.expiration_time,
           features: lic.features,
           needs: {
-            "OS secrets engine": "Vault Enterprise 2.0+ (plugin vault-plugin-secrets-os +ent)",
+            "OS secrets engine":
+              "Vault Enterprise 2.0+ (plugin vault-plugin-secrets-os +ent)",
             "LDAP static roles, self-managed": "OpenLDAP Secrets Engine",
             "Rotation policies, orphans": "Vault Enterprise",
           },
@@ -128,8 +135,14 @@ function withProofs(list) {
 }
 
 async function credentials() {
-  const s = watch.current().at ? watch.current() : { ...(await creds.describeAll()), at: new Date().toISOString() };
-  return { at: s.at, orphans: s.orphans, credentials: withProofs(s.credentials) };
+  const s = watch.current().at
+    ? watch.current()
+    : { ...(await creds.describeAll()), at: new Date().toISOString() };
+  return {
+    at: s.at,
+    orphans: s.orphans,
+    credentials: withProofs(s.credentials),
+  };
 }
 
 async function credential(_req, url) {
@@ -157,10 +170,21 @@ const personAction = (name, fn) => async (req, url) => {
     const who = (await session.person(req))?.user || "?";
     try {
       const r = await fn(c, req);
-      watch.record({ kind: name, id: c.id, by: who, detail: "accepted by Vault" });
+      watch.record({
+        kind: name,
+        id: c.id,
+        by: who,
+        detail: "accepted by Vault",
+      });
       return r;
     } catch (e) {
-      watch.record({ kind: name, id: c.id, by: who, result: "refused", detail: e.message });
+      watch.record({
+        kind: name,
+        id: c.id,
+        by: who,
+        result: "refused",
+        detail: e.message,
+      });
       throw e;
     }
   });
@@ -201,7 +225,9 @@ const routes = {
   "GET /api/credentials": credentials,
   "GET /api/credential": credential,
   "POST /api/credential/proof": proof,
-  "GET /api/policies": async () => ({ policies: await creds.rotationPolicies() }),
+  "GET /api/policies": async () => ({
+    policies: await creds.rotationPolicies(),
+  }),
   "GET /api/orphans": async () => {
     const r = await vault("GET", "sys/rotation/orphans");
     return { orphans: r?.data?.orphans || [], vault: r?.data || null };
@@ -215,9 +241,13 @@ const routes = {
   }),
   "GET /api/me": (req) => session.me(req),
   "POST /api/credential/rotate": personAction("rotate", (c) => creds.rotate(c)),
-  "POST /api/credential/reregister": personAction("reregister", (c) => creds.reregister(c)),
+  "POST /api/credential/reregister": personAction("reregister", (c) =>
+    creds.reregister(c),
+  ),
   "POST /api/credential/checkout": personAction("checkout", checkout),
-  "POST /api/credential/health-check": personAction("health-check", (c) => creds.healthCheck(c)),
+  "POST /api/credential/health-check": personAction("health-check", (c) =>
+    creds.healthCheck(c),
+  ),
   "POST /api/credential/unlock": personAction("unlock", (c) => creds.unlock(c)),
 };
 
@@ -230,13 +260,22 @@ function redirect(res, location, cookie) {
 
 async function authRoute(req, res, url) {
   try {
-    if (url.pathname === "/auth/login") return redirect(res, session.login(url));
+    if (url.pathname === "/auth/login")
+      return redirect(res, session.login(url));
     if (url.pathname === "/auth/callback") {
       const { sid, returnTo } = await session.callback(url);
-      return redirect(res, `${session.CONSOLE_URL}${returnTo}`, session.sessionCookie(sid, 8 * 3600));
+      return redirect(
+        res,
+        `${session.CONSOLE_URL}${returnTo}`,
+        session.sessionCookie(sid, 8 * 3600),
+      );
     }
     if (url.pathname === "/auth/logout")
-      return redirect(res, await session.logout(req), session.sessionCookie("", 0));
+      return redirect(
+        res,
+        await session.logout(req),
+        session.sessionCookie("", 0),
+      );
   } catch (e) {
     console.error(`[dance-api] ${url.pathname}: ${e.message}`);
     return redirect(res, `${session.CONSOLE_URL}/#/overview?signin=failed`);
@@ -247,35 +286,64 @@ async function authRoute(req, res, url) {
 export const server = http.createServer(async (req, res) => {
   res.setHeader("x-content-type-options", "nosniff");
   const url = new URL(req.url, "http://api");
-  if (req.method === "GET" && url.pathname.startsWith("/auth/")) return authRoute(req, res, url);
+  if (req.method === "GET" && url.pathname.startsWith("/auth/"))
+    return authRoute(req, res, url);
   try {
     const key = `${req.method} ${url.pathname}`;
     const handler = routes[key];
     if (!handler) {
-      const known = Object.keys(routes).some((k) => k.endsWith(` ${url.pathname}`));
+      const known = Object.keys(routes).some((k) =>
+        k.endsWith(` ${url.pathname}`),
+      );
       return send(res, known ? 405 : 404, {
         ok: false,
         error: known ? "method not allowed" : "not found",
       });
     }
-    const out = PLATFORM.has(key) ? await handler(req, url) : await handler(req, url);
-    return send(res, url.pathname === "/api/health" && !out.ok ? 503 : 200, { ok: true, ...out });
+    const out = PLATFORM.has(key)
+      ? await handler(req, url)
+      : await handler(req, url);
+    return send(res, url.pathname === "/api/health" && !out.ok ? 503 : 200, {
+      ok: true,
+      ...out,
+    });
   } catch (e) {
-    if (e instanceof BadRequest) return send(res, 400, { ok: false, error: e.message, status: 400 });
-    if (e instanceof ProofRefused) return send(res, 409, { ok: false, error: e.message, status: 409 });
-    if (e instanceof creds.NotFound) return send(res, 404, { ok: false, error: e.message, status: 404 });
+    if (e instanceof BadRequest)
+      return send(res, 400, { ok: false, error: e.message, status: 400 });
+    if (e instanceof ProofRefused)
+      return send(res, 409, { ok: false, error: e.message, status: 409 });
+    if (e instanceof creds.NotFound)
+      return send(res, 404, { ok: false, error: e.message, status: 404 });
     if (e instanceof session.Unauthenticated)
-      return send(res, 401, { ok: false, error: e.message, status: 401, signIn: "/auth/login" });
+      return send(res, 401, {
+        ok: false,
+        error: e.message,
+        status: 401,
+        signIn: "/auth/login",
+      });
     if (e instanceof VaultError) {
       const code = e.status >= 500 ? 502 : e.status;
-      return send(res, code, { ok: false, error: e.message, status: e.status, vault: e.errors });
+      return send(res, code, {
+        ok: false,
+        error: e.message,
+        status: e.status,
+        vault: e.errors,
+      });
     }
     console.error(`[dance-api] ${req.method} ${url.pathname}:`, e);
-    return send(res, 500, { ok: false, error: String(e?.message || e), status: 500 });
+    return send(res, 500, {
+      ok: false,
+      error: String(e?.message || e),
+      status: 500,
+    });
   }
 });
 
 if (process.env.NODE_ENV !== "test") {
   watch.start();
-  server.listen(PORT, () => console.log(`[dance-api] listening on :${PORT}, Vault ${VAULT_NODES.join(" ")}`));
+  server.listen(PORT, () =>
+    console.log(
+      `[dance-api] listening on :${PORT}, Vault ${VAULT_NODES.join(" ")}`,
+    ),
+  );
 }

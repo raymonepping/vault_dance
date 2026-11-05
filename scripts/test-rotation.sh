@@ -65,7 +65,10 @@ wait_for() {
     sleep 5
   done
 }
-is_state() { case " $2 " in *" $(state "$1") "*) return 0 ;; esac; return 1; }
+is_state() {
+  case " $2 " in *" $(state "$1") "*) return 0 ;; esac
+  return 1
+}
 moved() { [ "$(mark "$1")" != "$2" ]; }
 api_failure() { curl -sf "$API/api/timeline?kind=failure&id=$1&limit=50" | jq -e --arg p "$2" '[.events[] | select(.detail | test($p; "i"))] | length > 0'; }
 ldap_login() { # <persona>: Vault LDAP auth still works

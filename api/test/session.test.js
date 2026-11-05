@@ -82,9 +82,21 @@ test("capability map: the action's own capability decides, not any capability", 
   const m = capabilityMap(answer);
   assert.equal(m.view.allowed, true, "view needs read");
   assert.equal(m["os.checkout"].allowed, true, "checkout needs read");
-  assert.equal(m["os.rotate"].allowed, false, "rotate needs update, read is not enough");
-  assert.equal(m["ldap.reregister"].allowed, false, "a viewer can read a role, not rewrite it");
+  assert.equal(
+    m["os.rotate"].allowed,
+    false,
+    "rotate needs update, read is not enough",
+  );
+  assert.equal(
+    m["ldap.reregister"].allowed,
+    false,
+    "a viewer can read a role, not rewrite it",
+  );
   const root = capabilityMap({ [ACTIONS["policy.edit"].path]: ["root"] });
   assert.equal(root["policy.edit"].allowed, true);
-  assert.equal(capabilityMap({})["os.rotate"].allowed, false, "no answer means not allowed");
+  assert.equal(
+    capabilityMap({})["os.rotate"].allowed,
+    false,
+    "no answer means not allowed",
+  );
 });

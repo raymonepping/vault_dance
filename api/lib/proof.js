@@ -44,7 +44,11 @@ export function sshLogin(host, username, password) {
       resolve(result);
     };
     const timer = setTimeout(
-      () => done({ ok: false, error: `SSH to ${host}: timed out after ${TIMEOUT_MS} ms` }),
+      () =>
+        done({
+          ok: false,
+          error: `SSH to ${host}: timed out after ${TIMEOUT_MS} ms`,
+        }),
       TIMEOUT_MS,
     );
     conn.on("ready", () => {
@@ -56,7 +60,10 @@ export function sshLogin(host, username, password) {
           done(
             out.trim() === username
               ? { ok: true, detail: `logged in as ${out.trim()} on ${host}` }
-              : { ok: false, error: `logged in, but id -un said "${out.trim()}"` },
+              : {
+                  ok: false,
+                  error: `logged in, but id -un said "${out.trim()}"`,
+                },
           ),
         );
       });
@@ -64,7 +71,9 @@ export function sshLogin(host, username, password) {
     conn.on("keyboard-interactive", (_n, _i, _l, prompts, finish) =>
       finish(prompts.map(() => password)),
     );
-    conn.on("error", (e) => done({ ok: false, error: `SSH to ${host}: ${e.message}` }));
+    conn.on("error", (e) =>
+      done({ ok: false, error: `SSH to ${host}: ${e.message}` }),
+    );
     conn.connect({
       host,
       port: 22,
@@ -79,7 +88,11 @@ export function sshLogin(host, username, password) {
 }
 
 export async function ldapBind(dn, password) {
-  const client = new LdapClient({ url: LDAP_URL, timeout: TIMEOUT_MS, connectTimeout: TIMEOUT_MS });
+  const client = new LdapClient({
+    url: LDAP_URL,
+    timeout: TIMEOUT_MS,
+    connectTimeout: TIMEOUT_MS,
+  });
   try {
     await client.bind(dn, password);
     return { ok: true, detail: `bound as ${dn}` };
