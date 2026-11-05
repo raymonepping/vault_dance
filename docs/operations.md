@@ -123,7 +123,7 @@ Targets marked "(changes state)" change something; the rest only read.
 
 | Target | What |
 | --- | --- |
-| `make up` | (changes state) Start everything from a stopped machine: vault (with unseal), identity, hosts, app |
+| `make up` | (changes state) Start everything, then remove completed init containers (volumes kept) |
 | `make down` | (changes state) Stop app, hosts, identity and vault; containers and volumes are kept |
 | `make bootstrap` | (changes state) First run, from zero to verified. Idempotent |
 

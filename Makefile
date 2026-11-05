@@ -296,8 +296,11 @@ rotation-test: ## (changes state) Every scenario end to end: each broken credent
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-up: ## (changes state) Start everything from a stopped machine: vault (with unseal), identity, hosts, app
+up: ## (changes state) Start everything, then remove completed init containers (volumes kept)
 	$(call run,up.sh)
+	@# Only reached after successful startup. Compose recreates these on the next up.
+	@./scripts/compose.sh app rm -f volume-init
+	@./scripts/compose.sh identity rm -f identity-secrets-init
 
 down: ## (changes state) Stop app, hosts, identity and vault; containers and volumes are kept
 	@./scripts/compose.sh app stop 2>/dev/null || true
