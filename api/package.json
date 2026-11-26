@@ -12,7 +12,7 @@
     "test": "NODE_ENV=test node --test 'test/*.test.js'"
   },
   "dependencies": {
-    "ldapts": "9.2.0",
+    "ldapts": "9.3.1",
     "ssh2": "1.17.0"
   }
 }
